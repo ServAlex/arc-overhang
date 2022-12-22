@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import moviepy.editor as mp
 import numpy as np
 import os
+from interpolation import get_evenly_spaced_coordinates
 import util
 import imageio
 import os
@@ -141,13 +142,14 @@ with open('input/start.gcode','r') as start_gcode, open(OUTPUT_FILE_NAME,'a') as
 
 # Create base polygon. The base polygon is the shape that will be filled by arcs
 #base_poly = util.create_rect(150, 20, 20, 20, True)
+base_poly = util.create_rect(150, 20, 20, 30, True)
 
 # Make the base polygon a randomly generated shape
-base_poly = Polygon(util.generate_polygon(center=(x_axis, y_axis),
-                                         avg_radius=avg_radius,
-                                         irregularity=irregularity,
-                                         spikiness=spikiness,
-                                         num_vertices=num_vertices,))
+#base_poly = Polygon(util.generate_polygon(center=(x_axis, y_axis),
+#                                         avg_radius=avg_radius,
+#                                         irregularity=irregularity,
+#                                         spikiness=spikiness,
+#                                         num_vertices=num_vertices,))
 
 # Find starting edge (in this implementation, it just finds the largest edge to start from.
 # TODO Allow multiple starting points
@@ -264,8 +266,34 @@ while longest_distance > THRESHOLD + MIN_ARCS*LINE_WIDTH:
                                                                         FEEDRATE)
     next_point, longest_distance, _ = util.get_farthest_point(curr_arc, boundary_line, remaining_empty_space)
 
+targetShape = boundary_line
+completedShape = remaining_empty_space.exterior.difference(boundary_line).difference(starting_line)
+
+analizis_geoseries = gpd.GeoSeries(targetShape)
+analizis_geoseries.plot(ax=ax[0], color='magenta', linewidth=4)
+
+printed_geoseries = gpd.GeoSeries(completedShape.geoms[0]) # already printed part
+printed_geoseries.plot(ax=ax[0], color='lime', linewidth=4)
+
+printed2_geoseries = gpd.GeoSeries(completedShape.geoms[1]) # already printed part
+printed2_geoseries.plot(ax=ax[0], color='blue', linewidth=4)
+
+#hull_geoseries = gpd.GeoSeries(completedShape.convex_hull) 
+#hull_geoseries.plot(ax=ax[0], color='red', linewidth=4)
+
+divisions = 37
+points1 = get_evenly_spaced_coordinates(targetShape, divisions)
+points2 = get_evenly_spaced_coordinates(completedShape, divisions)[::-1]
+
+lineCoordinates = zip(points1, points2)
+for pair in lineCoordinates:
+    gpd.GeoSeries(LineString(list(pair))).plot(ax=ax[0], color='blue', linewidth=2)
+
+
 # Add concentric rings around the outside of the perimeter
 # TODO don't use a for loop.....
+# TODO write interpolation here
+"""
 for i in range(100):
     first_ring = LineString(Polygon(boundary_line).buffer(-99*LINE_WIDTH + LINE_WIDTH*i).exterior.coords)
     first_ring = first_ring.intersection(remaining_empty_space)
@@ -289,6 +317,7 @@ for i in range(100):
             #file_name = util.image_number(image_name_list)   
             #plt.savefig(file_name, dpi=200)
             #image_name_list.append(file_name + ".png")
+"""
 
 """
 # Turn images into gif + MP4

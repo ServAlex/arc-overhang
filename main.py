@@ -272,14 +272,8 @@ completedShape = remaining_empty_space.exterior.difference(boundary_line).differ
 analizis_geoseries = gpd.GeoSeries(targetShape)
 analizis_geoseries.plot(ax=ax[0], color='magenta', linewidth=4)
 
-printed_geoseries = gpd.GeoSeries(completedShape.geoms[0]) # already printed part
+printed_geoseries = gpd.GeoSeries(completedShape) # already printed part
 printed_geoseries.plot(ax=ax[0], color='lime', linewidth=4)
-
-printed2_geoseries = gpd.GeoSeries(completedShape.geoms[1]) # already printed part
-printed2_geoseries.plot(ax=ax[0], color='blue', linewidth=4)
-
-#hull_geoseries = gpd.GeoSeries(completedShape.convex_hull) 
-#hull_geoseries.plot(ax=ax[0], color='red', linewidth=4)
 
 divisions = 37
 points1 = get_evenly_spaced_coordinates(targetShape, divisions)

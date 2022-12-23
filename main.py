@@ -148,7 +148,7 @@ base_poly = util.create_rect(150, 20, 20, 30, True)
 # Make the base polygon a randomly generated shape
 #base_poly = Polygon(util.generate_polygon(center=(x_axis, y_axis), avg_radius=avg_radius, irregularity=irregularity, spikiness=spikiness, num_vertices=num_vertices,))
 
-#base_poly = Polygon([(105.65561662438037, 36.68752056996291), (108.77720450830691, 41.74945197365837), (105.17360504052347, 47.09145282687201), (110.91842393825652, 47.13518103973508), (111.41386054680402, 50.33605461197101), (107.04510551892349, 54.47702932950298), (108.416931200917, 62.79195975377525), (100.20919201800629, 59.804595628659015), (95.87491051840271, 57.819578790826824), (91.85621006974287, 57.919926017940796), (90.99658176429888, 51.71709533723465), (91.14418335612086, 46.12348195605352), (91.7392323668236, 41.5426483038725), (94.2444771612594, 35.61503290564059), (102.1338271220903, 38.18127709742047), (105.65561662438037, 36.68752056996291)])
+base_poly = Polygon([(105.65561662438037, 36.68752056996291), (108.77720450830691, 41.74945197365837), (105.17360504052347, 47.09145282687201), (110.91842393825652, 47.13518103973508), (111.41386054680402, 50.33605461197101), (107.04510551892349, 54.47702932950298), (108.416931200917, 62.79195975377525), (100.20919201800629, 59.804595628659015), (95.87491051840271, 57.819578790826824), (91.85621006974287, 57.919926017940796), (90.99658176429888, 51.71709533723465), (91.14418335612086, 46.12348195605352), (91.7392323668236, 41.5426483038725), (94.2444771612594, 35.61503290564059), (102.1338271220903, 38.18127709742047), (105.65561662438037, 36.68752056996291)])
 #base_poly = Polygon([(95.03307591266207, 61.44242332237353), (93.2611944512131, 54.03978522828941), (84.18173584271653, 50.71604934203349), (87.85468744487517, 42.61007177424688), (90.4103518773317, 40.55211002769791), (95.13321538102718, 42.227355495114075), (96.83477977873106, 38.14555774373097), (99.65886967537523, 38.98265402628894), (103.4901975249252, 40.25797485017517), (109.69626582291217, 42.55380147688191), (103.84477881018918, 48.603689008861444), (104.97768296404406, 50.63600468887961), (107.4394892600432, 56.047883366279436), (104.4248669124622, 58.060614733550565), (98.96258436494416, 57.162750031589866), (95.03307591266207, 61.44242332237353)])
 
 # Find starting edge (in this implementation, it just finds the largest edge to start from.
@@ -267,7 +267,7 @@ while longest_distance > THRESHOLD + MIN_ARCS*LINE_WIDTH:
     next_point, longest_distance, _ = util.get_farthest_point(curr_arc, boundary_line, remaining_empty_space)
 
 # interpolation
-shape_target = boundary_line
+shape_target = boundary_line.simplify(0)
 if shape_target.geom_type == 'MultiLineString':
     shape_target = ops.linemerge(shape_target)
 #shape_completed = remaining_empty_space.exterior.difference(boundary_line).difference(starting_line)
@@ -281,15 +281,20 @@ analizis_geoseries.plot(ax=ax[0], color='magenta', linewidth=4)
 printed_geoseries = gpd.GeoSeries(shape_completed) # already printed part
 printed_geoseries.plot(ax=ax[0], color='lime', linewidth=4)
 
-interpolation_pointsd_distance = 2
+interpolation_pointsd_distance = 1
 divisions = int(shape_completed.length/interpolation_pointsd_distance)
-points_target = get_evenly_spaced_coordinates(shape_target, divisions)
+points_target = get_coordinates_based_on_angles(shape_target, interpolation_pointsd_distance, 175)
+#points_target = get_evenly_spaced_coordinates(shape_target, divisions)
 points_completed = get_projected_coordinates(points_target, shape_completed)
 #points2 = get_evenly_spaced_coordinates(shape_completed, divisions)
 #points2 = get_evenly_spaced_coordinates(shape_completed, divisions)[::-1]
 
-newPoints2, newPoints1 = enhance_coordinates_distribution(points_completed, points_target, shape_completed, shape_target, interpolation_pointsd_distance)
-newPoints4, newPoints3 = enhance_coordinates_distribution(points_completed, points_target, shape_completed, shape_target, interpolation_pointsd_distance)
+print("angle enhanced", len(points_completed))
+points_completed, points_target = enhance_coordinates_distribution_based_on_angle(points_completed, points_target, shape_completed, shape_target, interpolation_pointsd_distance, 130)
+print("angle enhanced", len(points_completed))
+
+newPoints2, newPoints1 = enhance_coordinates_distribution_all_the_way(points_completed, points_target, shape_completed, shape_target, interpolation_pointsd_distance)
+#newPoints4, newPoints3 = enhance_coordinates_distribution(points_completed, points_target, shape_completed, shape_target, interpolation_pointsd_distance)
 print(len(points_completed))
 
 # draw points

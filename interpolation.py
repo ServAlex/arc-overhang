@@ -1,78 +1,70 @@
 from shapely import geometry, ops
 from shapely.geometry import Point, Polygon, LineString, GeometryCollection
 
-def get_evenly_spaced_coordinates(line, segmentCount = None, segmentLength = None):
+def get_evenly_spaced_coordinates(line, segment_count = None, segment_length = None):
 	print(line.length)
 	print(line.geom_type)
-	lineString = line
+	line_string = line
 	if line.geom_type == 'MultiLineString':
-		lineString = ops.linemerge(line)
-	print(len(lineString.coords))
+		line_string = ops.linemerge(line)
+	print(len(line_string.coords))
 
-	if segmentCount == None:
-		if segmentLength == None:
+	if segment_count == None:
+		if segment_length == None:
 			raise Exception("one of segmentCount and segmentLengh parameters needs to be specified")
-		segmentCount = lineString.length/segmentLength
+		segment_count = line_string.length/segment_length
 
-	return [lineString.interpolate(lineString.length*i/segmentCount) for i in range(0, segmentCount + 1)]
+	return [line_string.interpolate(line_string.length*i/segment_count) for i in range(0, segment_count + 1)]
 
 
 def get_projected_coordinates(coordinatesList, line):
-	lineString = line
+	line_string = line
 	if line.geom_type == 'MultiLineString':
-		lineString = ops.linemerge(line)
+		line_string = ops.linemerge(line)
 
-	def projectPoint(p):
-		distance = lineString.project(p)
-		return lineString.interpolate(distance)
+	def project_point(p):
+		distance = line_string.project(p)
+		return line_string.interpolate(distance)
 
-	return list(map(projectPoint, coordinatesList))
+	return list(map(project_point, coordinatesList))
 
 def generate_line(lines, distance):
 	print(distance)
 	return LineString([line.interpolate(distance, normalized = True) for line in lines])
 
-def enhance_coordinates_distribution(sideToBeEnchanced, secondSide, enhancedLineString, seconLineString, distanceTharhold):
-	# project!
-	print(len(sideToBeEnchanced))
-	#print(secondSide)
+def enhance_coordinates_distribution(side_to_be_enchanced, second_side, enhanced_line_string, secon_line_string, distance_tharhold):
+	print(len(side_to_be_enchanced))
 
-	if enhancedLineString.geom_type == 'MultiLineString':
-		enhancedLineString = ops.linemerge(enhancedLineString)
-	if seconLineString.geom_type == 'MultiLineString':
-		seconLineString = ops.linemerge(seconLineString)
+	if enhanced_line_string.geom_type == 'MultiLineString':
+		enhanced_line_string = ops.linemerge(enhanced_line_string)
+	if secon_line_string.geom_type == 'MultiLineString':
+		secon_line_string = ops.linemerge(secon_line_string)
 
-	enhancedPoints = []
-	secondPoints = []
+	enhanced_points = []
+	second_points = []
 
-	#print([tuple(point.coords) for point in sideToBeEnchanced])
-	#print([tuple(point.coords) for point in secondSide])
-	#filteredDistanceList = [(i-1, x.distance(sideToBeEnchanced[i - 1])) for i, x in enumerate(sideToBeEnchanced) if x.distance(sideToBeEnchanced[i - 1]) > distanceTharhold][1:]
-	#filteredDistanceList = [i-1 for i, x in enumerate(sideToBeEnchanced) if x.distance(sideToBeEnchanced[i - 1]) > distanceTharhold][1:]
-	distances1 = [enhancedLineString.project(point) for point in sideToBeEnchanced]
-	distances2 = [seconLineString.project(point) for point in secondSide]
-	filteredDistanceList = [i-1 for i, v in enumerate(distances1) if abs(v - distances1[i-1]) > distanceTharhold][1:][::-1]
-	print(filteredDistanceList)
+	distances1 = [enhanced_line_string.project(point) for point in side_to_be_enchanced]
+	distances2 = [secon_line_string.project(point) for point in second_side]
 
-	# insert starting from the end!
+	# order is reversed - start inserting from the end to not disturb indices of not yet inserted points
+	filtered_distance_list = [i-1 for i, v in enumerate(distances1) if abs(v - distances1[i-1]) > distance_tharhold][1:][::-1]
+	print("points indices preceding too long gaps", filtered_distance_list)
 
-	for v in filteredDistanceList:
+	for v in filtered_distance_list:
 		distance1 = distances1[v]
 		distance2 = distances1[v+1]
-		newPoint = enhancedLineString.interpolate((distance1+distance2)/2)
-		sideToBeEnchanced.insert(v+1, newPoint)
-		enhancedPoints.insert(v+1, newPoint)
-
+		newPoint = enhanced_line_string.interpolate((distance1+distance2)/2)
+		side_to_be_enchanced.insert(v+1, newPoint)
+		enhanced_points.insert(v+1, newPoint)
 
 		distance3 = distances2[v]
 		distance4 = distances2[v+1]
-		newPoint2 = seconLineString.interpolate((distance3+distance4)/2)
-		secondSide.insert(v+1, newPoint2)
-		secondPoints.insert(v+1, newPoint2)
+		newPoint2 = secon_line_string.interpolate((distance3+distance4)/2)
+		second_side.insert(v+1, newPoint2)
+		second_points.insert(v+1, newPoint2)
 
-	#print(sideToBeEnchanced)
-	print(len(sideToBeEnchanced))
-	return enhancedPoints, secondPoints
+	print(len(side_to_be_enchanced))
+	return enhanced_points, second_points
 
 
 

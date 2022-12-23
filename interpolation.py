@@ -1,12 +1,8 @@
 from shapely import geometry, ops
 from shapely.geometry import Point, Polygon, LineString, GeometryCollection
 
-def get_evenly_spaced_coordinates(line, segment_count = None, segment_length = None):
-	print(line.length)
-	print(line.geom_type)
-	line_string = line
-	if line.geom_type == 'MultiLineString':
-		line_string = ops.linemerge(line)
+def get_evenly_spaced_coordinates(line_string, segment_count = None, segment_length = None):
+	print(line_string.length)
 	print(len(line_string.coords))
 
 	if segment_count == None:
@@ -16,11 +12,8 @@ def get_evenly_spaced_coordinates(line, segment_count = None, segment_length = N
 
 	return [line_string.interpolate(line_string.length*i/segment_count) for i in range(0, segment_count + 1)]
 
-
 def get_projected_coordinates(coordinatesList, line):
 	line_string = line
-	if line.geom_type == 'MultiLineString':
-		line_string = ops.linemerge(line)
 
 	def project_point(p):
 		distance = line_string.project(p)
@@ -34,11 +27,6 @@ def generate_line(lines, distance):
 
 def enhance_coordinates_distribution(side_to_be_enchanced, second_side, enhanced_line_string, secon_line_string, distance_tharhold):
 	print(len(side_to_be_enchanced))
-
-	if enhanced_line_string.geom_type == 'MultiLineString':
-		enhanced_line_string = ops.linemerge(enhanced_line_string)
-	if secon_line_string.geom_type == 'MultiLineString':
-		secon_line_string = ops.linemerge(secon_line_string)
 
 	enhanced_points = []
 	second_points = []

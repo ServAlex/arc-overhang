@@ -266,13 +266,14 @@ while longest_distance > THRESHOLD + MIN_ARCS*LINE_WIDTH:
                                                                         FEEDRATE)
     next_point, longest_distance, _ = util.get_farthest_point(curr_arc, boundary_line, remaining_empty_space)
 
+# interpolation
 shape_target = boundary_line
-#if targetShape.geom_type == 'MultiLineString':
-#    targetShape = ops.linemerge(targetShape)
-#completedShape = remaining_empty_space.exterior.difference(boundary_line).difference(starting_line)
+if shape_target.geom_type == 'MultiLineString':
+    shape_target = ops.linemerge(shape_target)
+#shape_completed = remaining_empty_space.exterior.difference(boundary_line).difference(starting_line)
 shape_completed = remaining_empty_space.exterior.difference(boundary_line)
-#if completedShape.geom_type == 'MultiLineString':
-#    completedShape = ops.linemerge(completedShape)
+if shape_completed.geom_type == 'MultiLineString':
+    shape_completed = ops.linemerge(shape_completed)
 
 analizis_geoseries = gpd.GeoSeries(shape_target)
 analizis_geoseries.plot(ax=ax[0], color='magenta', linewidth=4)
@@ -312,8 +313,10 @@ print(max_length, LINE_WIDTH, contorus_count)
 
 contours = [generate_line(interpolation_lines, (i+1)/contorus_count) for i in range(contorus_count)]
 
-for line in contours:
-    gpd.GeoSeries(line).plot(ax=ax[0], color='blue', linewidth=1)
+# draw contours
+if True:
+    for line in contours:
+        gpd.GeoSeries(line).plot(ax=ax[0], color='blue', linewidth=1)
 
 
 # Add concentric rings around the outside of the perimeter

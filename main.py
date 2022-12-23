@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import moviepy.editor as mp
 import numpy as np
 import os
-from interpolation import get_evenly_spaced_coordinates
+from interpolation import * #get_evenly_spaced_coordinates
 import util
 import imageio
 import os
@@ -151,6 +151,9 @@ base_poly = util.create_rect(150, 20, 20, 30, True)
 #                                         spikiness=spikiness,
 #                                         num_vertices=num_vertices,))
 
+#base_poly = Polygon([(105.65561662438037, 36.68752056996291), (108.77720450830691, 41.74945197365837), (105.17360504052347, 47.09145282687201), (110.91842393825652, 47.13518103973508), (111.41386054680402, 50.33605461197101), (107.04510551892349, 54.47702932950298), (108.416931200917, 62.79195975377525), (100.20919201800629, 59.804595628659015), (95.87491051840271, 57.819578790826824), (91.85621006974287, 57.919926017940796), (90.99658176429888, 51.71709533723465), (91.14418335612086, 46.12348195605352), (91.7392323668236, 41.5426483038725), (94.2444771612594, 35.61503290564059), (102.1338271220903, 38.18127709742047), (105.65561662438037, 36.68752056996291)])
+#base_poly = Polygon([(95.03307591266207, 61.44242332237353), (93.2611944512131, 54.03978522828941), (84.18173584271653, 50.71604934203349), (87.85468744487517, 42.61007177424688), (90.4103518773317, 40.55211002769791), (95.13321538102718, 42.227355495114075), (96.83477977873106, 38.14555774373097), (99.65886967537523, 38.98265402628894), (103.4901975249252, 40.25797485017517), (109.69626582291217, 42.55380147688191), (103.84477881018918, 48.603689008861444), (104.97768296404406, 50.63600468887961), (107.4394892600432, 56.047883366279436), (104.4248669124622, 58.060614733550565), (98.96258436494416, 57.162750031589866), (95.03307591266207, 61.44242332237353)])
+
 # Find starting edge (in this implementation, it just finds the largest edge to start from.
 # TODO Allow multiple starting points
 # TODO Come up with some way to determine starting edges based on geometry of previous layer
@@ -267,7 +270,12 @@ while longest_distance > THRESHOLD + MIN_ARCS*LINE_WIDTH:
     next_point, longest_distance, _ = util.get_farthest_point(curr_arc, boundary_line, remaining_empty_space)
 
 targetShape = boundary_line
-completedShape = remaining_empty_space.exterior.difference(boundary_line).difference(starting_line)
+#if targetShape.geom_type == 'MultiLineString':
+#    targetShape = ops.linemerge(targetShape)
+#completedShape = remaining_empty_space.exterior.difference(boundary_line).difference(starting_line)
+completedShape = remaining_empty_space.exterior.difference(boundary_line)
+#if completedShape.geom_type == 'MultiLineString':
+#    completedShape = ops.linemerge(completedShape)
 
 analizis_geoseries = gpd.GeoSeries(targetShape)
 analizis_geoseries.plot(ax=ax[0], color='magenta', linewidth=4)
@@ -275,13 +283,50 @@ analizis_geoseries.plot(ax=ax[0], color='magenta', linewidth=4)
 printed_geoseries = gpd.GeoSeries(completedShape) # already printed part
 printed_geoseries.plot(ax=ax[0], color='lime', linewidth=4)
 
-divisions = 37
+interpolationPointsDistance = 2
+divisions = int(completedShape.length/interpolationPointsDistance)
 points1 = get_evenly_spaced_coordinates(targetShape, divisions)
-points2 = get_evenly_spaced_coordinates(completedShape, divisions)[::-1]
+points2 = get_projected_coordinates(points1, completedShape)
+#points2 = get_evenly_spaced_coordinates(completedShape, divisions)
+#points2 = get_evenly_spaced_coordinates(completedShape, divisions)[::-1]
 
-lineCoordinates = zip(points1, points2)
-for pair in lineCoordinates:
-    gpd.GeoSeries(LineString(list(pair))).plot(ax=ax[0], color='blue', linewidth=2)
+newPoints2, newPoints1 = enhance_coordinates_distribution(points2, points1, completedShape, targetShape, interpolationPointsDistance)
+newPoints4, newPoints3 = enhance_coordinates_distribution(points2, points1, completedShape, targetShape, interpolationPointsDistance)
+print(len(points2))
+
+# draw points
+if False:
+    for point in points1:
+        gpd.GeoSeries(point).plot(ax=ax[0], color='red', linewidth=4)
+    for point in points2:
+        gpd.GeoSeries(point).plot(ax=ax[0], color='blue', linewidth=4)
+
+#for point in newPoints1:
+#    gpd.GeoSeries(point).plot(ax=ax[0], color='orange', linewidth=4)
+#for point in newPoints2:
+#    gpd.GeoSeries(point).plot(ax=ax[0], color='orange', linewidth=4)
+
+#for point in newPoints3:
+#    gpd.GeoSeries(point).plot(ax=ax[0], color='black', linewidth=4)
+#for point in newPoints4:
+#    gpd.GeoSeries(point).plot(ax=ax[0], color='black', linewidth=4)
+
+pointPairs = zip(points1, points2)
+interpolationLines = [LineString(list(pair)) for pair in pointPairs]
+
+# draw interpolation lines
+if False:
+    for line in interpolationLines:
+        gpd.GeoSeries(line).plot(ax=ax[0], color='darkgray', linewidth=1)
+
+maxLength = max([line.length for line in interpolationLines])
+contorusCount = int(maxLength/LINE_WIDTH)
+print(maxLength, LINE_WIDTH, contorusCount)
+
+contours = [generate_line(interpolationLines, (i+1)/contorusCount) for i in range(contorusCount)]
+
+for line in contours:
+    gpd.GeoSeries(line).plot(ax=ax[0], color='blue', linewidth=1)
 
 
 # Add concentric rings around the outside of the perimeter
@@ -335,6 +380,8 @@ for i in range(10):
 with open('input/end.gcode','r') as end_gcode, open(OUTPUT_FILE_NAME,'a') as gcode_file:
     for line in end_gcode:
         gcode_file.write(line)
+
+print(list(base_poly.exterior.coords))
 
 # Create image
 plt.savefig("output/output", dpi=600)

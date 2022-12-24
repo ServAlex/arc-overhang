@@ -54,9 +54,9 @@ def get_projected_coordinates(coordinatesList, line):
 
 	return list(map(project_point, coordinatesList))
 
-def generate_line(lines, distance):
+def generate_line(lines, distance, evenSpread):
 	print("line distance", distance)
-	return LineString([line.interpolate(distance, normalized = True) for line in lines])
+	return LineString([line.interpolate(distance, normalized = evenSpread) for line in lines])
 
 def enhance_coordinates_distribution(side_to_be_enchanced, second_side, enhanced_line_string, secon_line_string, distance_tharhold):
 	#print(len(side_to_be_enchanced))

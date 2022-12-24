@@ -1,6 +1,6 @@
 from http.client import PROCESSING
 import shapely
-from shapely.geometry import Point, Polygon, LineString, GeometryCollection
+from shapely.geometry import Point, Polygon, LineString, GeometryCollection, MultiLineString
 from shapely import affinity
 import geopandas as gpd
 import matplotlib.pyplot as plt
@@ -121,6 +121,11 @@ ax[1].set_aspect('equal')
 ax[0].title.set_text('Gcode Preview')
 ax[1].title.set_text('Rainbow Visualization')
 
+mng = plt.get_current_fig_manager()
+mng.window.state('zoomed') #works fine on Windows!
+plt.ion()
+plt.show(block = False)
+
 # Create a list of image names
 image_name_list = []
 
@@ -149,11 +154,10 @@ base_poly = util.create_rect(150, 20, 20, 30, True)
 # hard
 #base_poly = Polygon([(95.03307591266207, 61.44242332237353), (93.2611944512131, 54.03978522828941), (84.18173584271653, 50.71604934203349), (87.85468744487517, 42.61007177424688), (90.4103518773317, 40.55211002769791), (95.13321538102718, 42.227355495114075), (96.83477977873106, 38.14555774373097), (99.65886967537523, 38.98265402628894), (103.4901975249252, 40.25797485017517), (109.69626582291217, 42.55380147688191), (103.84477881018918, 48.603689008861444), (104.97768296404406, 50.63600468887961), (107.4394892600432, 56.047883366279436), (104.4248669124622, 58.060614733550565), (98.96258436494416, 57.162750031589866), (95.03307591266207, 61.44242332237353)])
 # failing
-#base_poly = Polygon([(92.34956071425829, 54.98432201279906), (83.98922940950823, 50.298155643332066), (91.69906038241683, 46.18093404929046), (91.73874273139555, 41.28382241500534), (96.60078706451684, 44.13052535502262), (97.94144036974764, 42.778250547216), (99.63956634607004, 40.66419332670824), (101.25110955671346, 44.0506328126564), (109.35258711537831, 36.33079353221364), (110.47063467507401, 45.796212134023314), (109.8329206008391, 51.296329179873766), (109.47619943712579, 58.2113738963351), (103.44455712109193, 58.997805770454995), (97.18682148840615, 64.63316996934223), (94.94505227555427, 59.42156949681912), (92.34956071425829, 54.98432201279906)])
+base_poly = Polygon([(92.34956071425829, 54.98432201279906), (83.98922940950823, 50.298155643332066), (91.69906038241683, 46.18093404929046), (91.73874273139555, 41.28382241500534), (96.60078706451684, 44.13052535502262), (97.94144036974764, 42.778250547216), (99.63956634607004, 40.66419332670824), (101.25110955671346, 44.0506328126564), (109.35258711537831, 36.33079353221364), (110.47063467507401, 45.796212134023314), (109.8329206008391, 51.296329179873766), (109.47619943712579, 58.2113738963351), (103.44455712109193, 58.997805770454995), (97.18682148840615, 64.63316996934223), (94.94505227555427, 59.42156949681912), (92.34956071425829, 54.98432201279906)])
 
 # Make the base polygon a randomly generated shape
 #base_poly = Polygon(util.generate_polygon(center=(x_axis, y_axis), avg_radius=avg_radius, irregularity=irregularity, spikiness=spikiness, num_vertices=num_vertices,))
-
 
 # Find starting edge (in this implementation, it just finds the largest edge to start from.
 # TODO Allow multiple starting points
@@ -288,9 +292,62 @@ should_draw_interpolation_lines = True
 should_draw_contours = True
 #should_draw_ = False
 
-gpd.GeoSeries(shape_target).plot(ax=ax[0], color='magenta', linewidth=4)
-gpd.GeoSeries(shape_completed).plot(ax=ax[0], color='lime', linewidth=4)
+gpd.GeoSeries(shape_target).plot(ax=ax[0], color='magenta', linewidth=1)
+gpd.GeoSeries(shape_completed).plot(ax=ax[0], color='lime', linewidth=1)
 
+
+remaining_empty = remaining_empty_space
+current_line = shape_completed
+
+def multiline_to_list(multiline):
+    return [e for e in multiline]
+
+def normalize_multi_line(multilines):
+    return [multiline_to_list(m) if m.geom_type == "MultiLineString" else [m] for m in multilines]
+
+def flatten(l):
+    return [item for sublist in l for item in sublist]
+
+iterations_limit = 1
+
+while remaining_empty.area > 0 and iterations_limit > 0:
+    # add buffer
+    cutting_area = current_line.buffer(LINE_WIDTH)
+    # subtract buffer from remaining area
+    remaining_empty = remaining_empty.difference(cutting_area)
+
+    #gpd.GeoSeries(remaining_empty).plot(ax=ax[0], color='lightgray', linewidth=1)
+
+    # new current line = take remaining area contour subtracting target contour(s)
+    if(remaining_empty.geom_type != "MultiPolygon"):
+        current_line = remaining_empty.exterior.difference(shape_target).difference(shape_completed)
+    else:
+        polygons = [polygon for polygon in remaining_empty]
+        exteriors = [polygon.exterior for polygon in polygons]
+        exteriors_subtracted = [exterior.difference(shape_completed).difference(shape_target) for exterior in exteriors]
+        normalized_exteriors = normalize_multi_line(exteriors_subtracted)
+        flat = flatten(normalized_exteriors)
+        current_line = MultiLineString(flat)
+
+    gpd.GeoSeries(current_line).plot(ax=ax[0], color='blue', linewidth=1)
+
+    plt.waitforbuttonpress()
+    #iterations_limit -= 1
+
+
+"""
+cutting_area = current_line.buffer(LINE_WIDTH*2)
+remaining_empty = remaining_empty.difference(cutting_area)
+gpd.GeoSeries(cutting_area).plot(ax=ax[0], color='yellow', linewidth=1)
+
+# new current line = take remaining area contour subtracting target contour(s)
+current_line = remaining_empty.exterior.difference(shape_target).difference(shape_completed)
+gpd.GeoSeries(current_line).plot(ax=ax[0], color='black', linewidth=1)
+
+"""
+
+
+"""
 interpolation_pointsd_distance = 1
 divisions = int(shape_completed.length/interpolation_pointsd_distance)
 points_target = get_coordinates_based_on_angles(shape_target, interpolation_pointsd_distance, 175)
@@ -325,6 +382,7 @@ contours = [generate_line(interpolation_lines, (i+1)*distanceMultiplier, spreadC
 if should_draw_contours:
     [gpd.GeoSeries(line).plot(ax=ax[0], color='blue', linewidth=1) for line in contours]
 
+"""
 
 # Add concentric rings around the outside of the perimeter
 # TODO don't use a for loop.....
@@ -383,7 +441,6 @@ print("base_poly = Polygon(", list(base_poly.exterior.coords), ")")
 
 # Create image
 plt.savefig("output/output", dpi=600)
-mng = plt.get_current_fig_manager()
-mng.window.state('zoomed') #works fine on Windows!
-plt.show()
-plt.ion()
+
+plt.ioff()
+plt.show(block = True)

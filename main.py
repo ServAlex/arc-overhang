@@ -159,6 +159,9 @@ base_poly = Polygon([(92.34956071425829, 54.98432201279906), (83.98922940950823,
 # Make the base polygon a randomly generated shape
 #base_poly = Polygon(util.generate_polygon(center=(x_axis, y_axis), avg_radius=avg_radius, irregularity=irregularity, spikiness=spikiness, num_vertices=num_vertices,))
 
+skip_circles = False
+#skip_circles = True
+
 # Find starting edge (in this implementation, it just finds the largest edge to start from.
 # TODO Allow multiple starting points
 # TODO Come up with some way to determine starting edges based on geometry of previous layer
@@ -221,86 +224,79 @@ curr_z -= LAYER_HEIGHT*2
 with open(OUTPUT_FILE_NAME, 'a') as gcode_file:
         gcode_file.write(f"G1 Z{'{0:.3f}'.format(curr_z)} F500\n")
 
-# Create multiple layers
-r = LINE_WIDTH
-small_arc_radius = 0.5 # Arcs smaller than this get reduced speed and/or flow settings.
-curr_arc = starting_arc
+if not skip_circles:
+    # Create multiple layers
+    r = LINE_WIDTH
+    small_arc_radius = 0.5 # Arcs smaller than this get reduced speed and/or flow settings.
+    curr_arc = starting_arc
 
-# Overlap arc with the starting line
-starting_point = util.move_toward_point(starting_point, affinity.rotate(p1, 90, LineString([p1, p2]).centroid), LINE_WIDTH*0.5) 
+    # Overlap arc with the starting line
+    starting_point = util.move_toward_point(starting_point, affinity.rotate(p1, 90, LineString([p1, p2]).centroid), LINE_WIDTH*0.5) 
 
-# Create arcs until we reach the edge of the polygon
-while r < r_start-THRESHOLD:
+    # Create arcs until we reach the edge of the polygon
+    while r < r_start-THRESHOLD:
 
-    # Create a circle based on point location, radius, n
-    next_circle = Polygon(util.create_circle(starting_point.x, starting_point.y, r, N))
-    next_circle = affinity.rotate(next_circle, starting_line_angle, origin = 'centroid', use_radians=True)
+        # Create a circle based on point location, radius, n
+        next_circle = Polygon(util.create_circle(starting_point.x, starting_point.y, r, N))
+        next_circle = affinity.rotate(next_circle, starting_line_angle, origin = 'centroid', use_radians=True)
 
-    # Plot arc
-    next_arc = util.create_arc(next_circle, base_poly, ax, depth=0)
-    if not next_arc:
+        # Plot arc
+        next_arc = util.create_arc(next_circle, base_poly, ax, depth=0)
+        if not next_arc:
+            r += LINE_WIDTH
+            continue
+        curr_arc = Polygon(next_arc)
+
+        #Slow down and reduce flow for all small arcs
+        if r < small_arc_radius:
+            speed_modifier = 0.25
+            e_modifier = 0.25
+        else: 
+            speed_modifier = 1
+            e_modifier = 1
+
+        # Write gcode to file
+        util.write_gcode(OUTPUT_FILE_NAME, next_arc, LINE_WIDTH, LAYER_HEIGHT, FILAMENT_DIAMETER, ARC_E_MULTIPLIER*e_modifier, FEEDRATE*speed_modifier, close_loop=False)
+        
         r += LINE_WIDTH
-        continue
-    curr_arc = Polygon(next_arc)
+        
+        # Create image
+        #file_name = util.image_number(image_name_list)   
+        #plt.savefig(file_name, dpi=200)
+        #image_name_list.append(file_name + ".png")
 
-    #Slow down and reduce flow for all small arcs
-    if r < small_arc_radius:
-        speed_modifier = 0.25
-        e_modifier = 0.25
-    else: 
-        speed_modifier = 1
-        e_modifier = 1
+    remaining_empty_space = base_poly.difference(curr_arc)
+    next_point, longest_distance, _ = util.get_farthest_point(curr_arc, boundary_line, base_poly)
 
-    # Write gcode to file
-    util.write_gcode(OUTPUT_FILE_NAME, next_arc, LINE_WIDTH, LAYER_HEIGHT, FILAMENT_DIAMETER, ARC_E_MULTIPLIER*e_modifier, FEEDRATE*speed_modifier, close_loop=False)
-    
-    r += LINE_WIDTH
-    
-    # Create image
-    #file_name = util.image_number(image_name_list)   
-    #plt.savefig(file_name, dpi=200)
-    #image_name_list.append(file_name + ".png")
-
-remaining_empty_space = base_poly.difference(curr_arc)
-next_point, longest_distance, _ = util.get_farthest_point(curr_arc, boundary_line, base_poly)
-
-# If there's room for an arc to be built on top of the current arc, then do it!
-while longest_distance > THRESHOLD + MIN_ARCS*LINE_WIDTH: 
-    next_arc, remaining_empty_space, image_name_list = util.arc_overhang(curr_arc, boundary_line, starting_line_angle, N, 
-                                                                        remaining_empty_space, next_circle, 
-                                                                        THRESHOLD, ax, fig, 1, image_name_list, 
-                                                                        R_MAX, MIN_ARCS, LINE_WIDTH, OUTPUT_FILE_NAME,
-                                                                        LAYER_HEIGHT, FILAMENT_DIAMETER, ARC_E_MULTIPLIER,
-                                                                        FEEDRATE)
-    next_point, longest_distance, _ = util.get_farthest_point(curr_arc, boundary_line, remaining_empty_space)
+    # If there's room for an arc to be built on top of the current arc, then do it!
+    while longest_distance > THRESHOLD + MIN_ARCS*LINE_WIDTH: 
+        next_arc, remaining_empty_space, image_name_list = util.arc_overhang(curr_arc, boundary_line, starting_line_angle, N, 
+                                                                            remaining_empty_space, next_circle, 
+                                                                            THRESHOLD, ax, fig, 1, image_name_list, 
+                                                                            R_MAX, MIN_ARCS, LINE_WIDTH, OUTPUT_FILE_NAME,
+                                                                            LAYER_HEIGHT, FILAMENT_DIAMETER, ARC_E_MULTIPLIER,
+                                                                            FEEDRATE)
+        next_point, longest_distance, _ = util.get_farthest_point(curr_arc, boundary_line, remaining_empty_space)
 
 # interpolation
-shape_target = boundary_line.simplify(0)
-if shape_target.geom_type == 'MultiLineString':
-    shape_target = ops.linemerge(shape_target)
-#shape_completed = remaining_empty_space.exterior.difference(boundary_line).difference(starting_line)
-shape_completed = remaining_empty_space.exterior.difference(boundary_line)
-if shape_completed.geom_type == 'MultiLineString':
-    shape_completed = ops.linemerge(shape_completed)
 
-should_draw_points = False
-should_draw_interpolation_lines = False
-should_draw_contours = False
-# uncomment needed
-#should_draw_points = True
-#should_draw_interpolation_lines = True
-#should_draw_contours = True
-#should_draw_ = False
+shape_target = boundary_line.simplify(0)
+
+if(skip_circles):
+    remaining_empty = base_poly
+    current_line = MultiLineString([starting_line])
+else:
+    shape_completed = remaining_empty_space.exterior.difference(boundary_line)
+    if shape_completed.geom_type == 'MultiLineString':
+        shape_completed = ops.linemerge(shape_completed)
+
+    remaining_empty = remaining_empty_space
+    current_line = MultiLineString([shape_completed])
 
 gpd.GeoSeries(shape_target).plot(ax=ax[0], color='magenta', linewidth=1)
-gpd.GeoSeries(shape_completed).plot(ax=ax[0], color='lime', linewidth=1)
+gpd.GeoSeries(current_line).plot(ax=ax[0], color='lime', linewidth=1)
 
 #while not plt.waitforbuttonpress(): pass
-
-#remaining_empty = remaining_empty_space
-remaining_empty = base_poly
-#current_line = MultiLineString([shape_completed])
-current_line = MultiLineString([starting_line])
 
 def normalize_multi_line(multilines):
     """
@@ -321,54 +317,11 @@ while remaining_empty.area > 0:
     else:
         current_line = MultiLineString(flatten(normalize_multi_line([polygon.exterior.intersection(remaining_empty.buffer(0.01)) for polygon in cutting_area.geoms])))
 
-
     gpd.GeoSeries(current_line).plot(ax=ax[0], color='blue', linewidth=1)
 
-    #gpd.GeoSeries(remaining_empty).plot(ax=ax[0], color='lightgray', linewidth=1)
-#    gpd.GeoSeries(cutting_area).plot(ax=ax[0], color='lightgray', linewidth=1)
-    #gpd.GeoSeries(remaining_empty.exterior).plot(ax=ax[0], color='red', linewidth=1)
-
-    while not plt.waitforbuttonpress(): pass
+    #while not plt.waitforbuttonpress(): pass
 
 
-
-
-"""
-interpolation_pointsd_distance = 1
-divisions = int(shape_completed.length/interpolation_pointsd_distance)
-points_target = get_coordinates_based_on_angles(shape_target, interpolation_pointsd_distance, 175)
-#points_target = get_evenly_spaced_coordinates(shape_target, divisions)
-points_completed = get_projected_coordinates(points_target, shape_completed)
-
-points_completed, points_target = enhance_coordinates_distribution_based_on_angle(points_completed, points_target, shape_completed, shape_target, interpolation_pointsd_distance, 130)
-newPoints2, newPoints1 = enhance_coordinates_distribution_all_the_way(points_completed, points_target, shape_completed, shape_target, interpolation_pointsd_distance)
-
-if should_draw_points:
-    [gpd.GeoSeries(point).plot(ax=ax[0], color='red', linewidth=4) for point in points_target]
-    [gpd.GeoSeries(point).plot(ax=ax[0], color='blue', linewidth=4) for point in points_completed]
-
-point_pairs = zip(points_target, points_completed)
-interpolation_lines = [LineString(list(pair)[::-1]) for pair in point_pairs]
-
-if should_draw_interpolation_lines:
-    [gpd.GeoSeries(line).plot(ax=ax[0], color='darkgray', linewidth=1) for line in interpolation_lines]
-
-max_length = max([line.length for line in interpolation_lines])
-contorus_count = int(max_length/LINE_WIDTH)
-print(max_length, LINE_WIDTH, contorus_count)
-
-spreadCurvesEvenly = False
-spreadCurvesEvenly = True
-distanceMultiplier = LINE_WIDTH
-if spreadCurvesEvenly:
-    distanceMultiplier = 1/contorus_count
-contours = [generate_line(interpolation_lines, (i+1)*distanceMultiplier, spreadCurvesEvenly) for i in range(contorus_count)]
-
-# draw contours
-if should_draw_contours:
-    [gpd.GeoSeries(line).plot(ax=ax[0], color='blue', linewidth=1) for line in contours]
-
-"""
 
 # Add concentric rings around the outside of the perimeter
 # TODO don't use a for loop.....
@@ -430,4 +383,4 @@ plt.savefig("output/output", dpi=600)
 
 plt.ioff()
 # enable if closes again =)
-# plt.show(block = True)
+plt.show(block = True)

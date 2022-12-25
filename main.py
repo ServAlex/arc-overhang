@@ -297,35 +297,52 @@ gpd.GeoSeries(shape_completed).plot(ax=ax[0], color='lime', linewidth=1)
 
 #while not plt.waitforbuttonpress(): pass
 
-remaining_empty = remaining_empty_space
-current_line = MultiLineString([shape_completed])
+#remaining_empty = remaining_empty_space
+remaining_empty = base_poly
+#current_line = MultiLineString([shape_completed])
+current_line = MultiLineString([starting_line])
 
 def normalize_multi_line(multilines):
     """
     convert list of multilines and lines to list of lists of lines
     """
-    return [list(m.geoms) if m.geom_type == "MultiLineString" else [m] for m in multilines]
+    return [list(m.geoms) if m.geom_type == "MultiLineString" else [m] if not m.is_empty else [] for m in multilines]
 
 def flatten(l):
     return [item for sublist in l for item in sublist]
 
 iterations_limit = 1
 while remaining_empty.area > 0 and iterations_limit > 0:
-    cutting_area = current_line.buffer(LINE_WIDTH)
+    #parallel_offset
+    cutting_area = current_line.buffer(LINE_WIDTH, quad_segs=4).simplify(0.01)
     remaining_empty = remaining_empty.difference(cutting_area)
-    offset_lines1 = [line.offset_curve(LINE_WIDTH) for line in current_line.geoms]
-    #offset_line2 = offset_curve(current_line, -LINE_WIDTH)
+    #offset_lines1 = [line.offset_curve(LINE_WIDTH) for line in current_line.geoms]
 
-    gpd.GeoSeries(remaining_empty).plot(ax=ax[0], color='lightgray', linewidth=1)
-    #gpd.GeoSeries(cutting_area).plot(ax=ax[0], color='yellow', linewidth=1)
+
+    #current_line = cutting_area.exterior.intersection(remaining_empty)
+    #current_line = cutting_area.exterior.intersection(remaining_empty.buffer(LINE_WIDTH*3))
+
+    if cutting_area.geom_type != "MultiPolygon":
+        current_line = cutting_area.exterior.intersection(remaining_empty.buffer(0.01))
+    else:
+        current_line = MultiLineString(flatten(normalize_multi_line([polygon.exterior.intersection(remaining_empty.buffer(0.01)) for polygon in cutting_area.geoms])))
+
+
+    gpd.GeoSeries(current_line).plot(ax=ax[0], color='blue', linewidth=1)
+
+    #gpd.GeoSeries(remaining_empty).plot(ax=ax[0], color='lightgray', linewidth=1)
+#    gpd.GeoSeries(cutting_area).plot(ax=ax[0], color='lightgray', linewidth=1)
     #gpd.GeoSeries(remaining_empty.exterior).plot(ax=ax[0], color='red', linewidth=1)
 
-    gpd.GeoSeries(offset_lines1).plot(ax=ax[0], color='red', linewidth=1)
-    #gpd.GeoSeries(offset_line2).plot(ax=ax[0], color='blue', linewidth0=1)
+    #gpd.GeoSeries(offset_lines1).plot(ax=ax[0], color='red', linewidth=1)
+    #gpd.GeoSeries(offset_lines2).plot(ax=ax[0], color='blue', linewidth=1)
 
+
+
+    """
     # new current line = take remaining area contour subtracting target contour(s)
     if(remaining_empty.geom_type != "MultiPolygon"):
-        current_line = remaining_empty.exterior.difference(shape_completed).difference(shape_target)
+        current_line = MultiLineString([ remaining_empty.exterior.difference(shape_completed).difference(shape_target)])
     else:
         polygons = [polygon for polygon in remaining_empty.geoms]
         exteriors = [polygon.exterior for polygon in polygons]
@@ -333,6 +350,9 @@ while remaining_empty.area > 0 and iterations_limit > 0:
         normalized_exteriors = normalize_multi_line(exteriors_subtracted)
         flat = flatten(normalized_exteriors)
         current_line = MultiLineString(flat)
+    """
+
+    # new current line = outter line
 
     #gpd.GeoSeries(current_line).plot(ax=ax[0], color='blue', linewidth=1)
 

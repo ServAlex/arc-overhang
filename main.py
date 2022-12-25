@@ -254,22 +254,30 @@ def flatten(l):
 def add_line_start_gcode():
     with open(OUTPUT_FILE_NAME, 'a') as gcode_file:
         gcode_file.write(f"G1 E1.1 F300 ;unretract \n")
-        gcode_file.write(f"G91; relative positioning \n")
-        gcode_file.write(f"G1 Z-1.0 F3000 ; move z back down little to prevent scratching of print \n")
-        gcode_file.write(f"G90; absolute positioning \n")
+#        gcode_file.write(f"G91; relative positioning \n")
+#        gcode_file.write(f"G1 Z-1.0 F3000 ; move z back down little to prevent scratching of print \n")
+#        gcode_file.write(f"G90; absolute positioning \n")
 
 def add_line_end_gcode():
     with open(OUTPUT_FILE_NAME, 'a') as gcode_file:
         gcode_file.write(f"G1 E-1 F300 ;retract \n")
-        gcode_file.write(f"G91; relative positioning \n")
-        gcode_file.write(f"G1 Z1.0 F3000 ; move z up little to prevent scratching of print \n")
-        gcode_file.write(f"G90; absolute positioning \n")
+#        gcode_file.write(f"G91; relative positioning \n")
+#        gcode_file.write(f"G1 Z1.0 F3000 ; move z up little to prevent scratching of print \n")
+#        gcode_file.write(f"G90; absolute positioning \n")
 
 def gcode_move_to(x, y, e, feedrate):
     with open(OUTPUT_FILE_NAME, 'a') as gcode_file:
         gcode_file.write(f"G0 "
                     f"X{'{0:.3f}'.format(x)} "
                     f"Y{'{0:.3f}'.format(y)} "
+                    f"E{'{0:.8f}'.format(e)} "
+                    f"F{feedrate*60}\n")
+
+def gcode_move_to_point(p, e, feedrate):
+    with open(OUTPUT_FILE_NAME, 'a') as gcode_file:
+        gcode_file.write(f"G0 "
+                    f"X{'{0:.3f}'.format(p.x)} "
+                    f"Y{'{0:.3f}'.format(p.y)} "
                     f"E{'{0:.8f}'.format(e)} "
                     f"F{feedrate*60}\n")
 
@@ -280,6 +288,8 @@ while remaining_empty.area > 0:
     #parallel_offset
     cutting_area = current_line.buffer(LINE_WIDTH, resolution=4).simplify(0.001)
     remaining_empty = remaining_empty.difference(cutting_area)
+
+    prev_line = current_line
 
     if cutting_area.geom_type != "MultiPolygon":
         current_line = cutting_area.exterior.intersection(remaining_empty.buffer(0.01))
@@ -295,8 +305,11 @@ while remaining_empty.area > 0:
 
     if current_line.geom_type == "MultiLineString":
         for i, v in enumerate(current_line.geoms):
-
-            gcode_move_to(v.coords[0][0], v.coords[0][1], 0, FEEDRATE*20)
+            start_point = Point(v.coords[0])
+            # get point on prev line
+            point_on_prev_line = prev_line.interpolate(prev_line.project(start_point))
+            gcode_move_to_point(point_on_prev_line, 0, FEEDRATE*20)
+            #gcode_move_to(v.coords[0][0], v.coords[0][1], 0.1, FEEDRATE*20)
             add_line_start_gcode()
             #add_line_end_gcode()
             #add_line_start_gcode()
@@ -309,7 +322,11 @@ while remaining_empty.area > 0:
 
     else:
         if current_line.length > 0.1:
-            gcode_move_to(current_line.coords[0][0], current_line.coords[0][1], 0, FEEDRATE*20)
+            start_point = Point(current_line.coords[0])
+            # get point on prev line
+            point_on_prev_line = prev_line.interpolate(prev_line.project(start_point))
+            gcode_move_to_point(point_on_prev_line, 0, FEEDRATE*20)
+            #gcode_move_to(current_line.coords[0][0], current_line.coords[0][1], 0, FEEDRATE*20)
 
             #add_line_end_gcode()
             #add_line_start_gcode()

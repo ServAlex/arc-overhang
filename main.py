@@ -21,7 +21,7 @@ top = tkinter.Tk()
 top.title("Arc GEN")
 label_list = [
      ["Arc generator",            0]
-    ,["Line width",               0.25]
+    ,["Line width",               0.35]
     ,["Layer height",             0.4]
     ,["Arc extrusion multiplier", 1.05]
     ,["Feedrate",                 1.5]
@@ -297,6 +297,8 @@ while remaining_empty.area > 0:
         for i, v in enumerate(current_line.geoms):
 
             gcode_move_to(v.coords[0][0], v.coords[0][1], 0, FEEDRATE*20)
+            add_line_start_gcode()
+            add_line_end_gcode()
             add_line_start_gcode()
 
             gpd.GeoSeries(v).plot(ax=ax[0], color=colors[i%3], linewidth=1)

@@ -311,16 +311,10 @@ def normalize_multi_line(multilines):
 def flatten(l):
     return [item for sublist in l for item in sublist]
 
-iterations_limit = 1
-while remaining_empty.area > 0 and iterations_limit > 0:
+while remaining_empty.area > 0:
     #parallel_offset
-    cutting_area = current_line.buffer(LINE_WIDTH, quad_segs=4).simplify(0.01)
+    cutting_area = current_line.buffer(LINE_WIDTH, resolution=8).simplify(0.01)
     remaining_empty = remaining_empty.difference(cutting_area)
-    #offset_lines1 = [line.offset_curve(LINE_WIDTH) for line in current_line.geoms]
-
-
-    #current_line = cutting_area.exterior.intersection(remaining_empty)
-    #current_line = cutting_area.exterior.intersection(remaining_empty.buffer(LINE_WIDTH*3))
 
     if cutting_area.geom_type != "MultiPolygon":
         current_line = cutting_area.exterior.intersection(remaining_empty.buffer(0.01))
@@ -334,30 +328,7 @@ while remaining_empty.area > 0 and iterations_limit > 0:
 #    gpd.GeoSeries(cutting_area).plot(ax=ax[0], color='lightgray', linewidth=1)
     #gpd.GeoSeries(remaining_empty.exterior).plot(ax=ax[0], color='red', linewidth=1)
 
-    #gpd.GeoSeries(offset_lines1).plot(ax=ax[0], color='red', linewidth=1)
-    #gpd.GeoSeries(offset_lines2).plot(ax=ax[0], color='blue', linewidth=1)
-
-
-
-    """
-    # new current line = take remaining area contour subtracting target contour(s)
-    if(remaining_empty.geom_type != "MultiPolygon"):
-        current_line = MultiLineString([ remaining_empty.exterior.difference(shape_completed).difference(shape_target)])
-    else:
-        polygons = [polygon for polygon in remaining_empty.geoms]
-        exteriors = [polygon.exterior for polygon in polygons]
-        exteriors_subtracted = [exterior.difference(shape_completed).difference(shape_target) for exterior in exteriors]
-        normalized_exteriors = normalize_multi_line(exteriors_subtracted)
-        flat = flatten(normalized_exteriors)
-        current_line = MultiLineString(flat)
-    """
-
-    # new current line = outter line
-
-    #gpd.GeoSeries(current_line).plot(ax=ax[0], color='blue', linewidth=1)
-
     while not plt.waitforbuttonpress(): pass
-    #iterations_limit -= 1
 
 
 

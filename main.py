@@ -25,7 +25,7 @@ label_list = [
     ,["Layer height",             0.4]
     ,["Arc extrusion multiplier", 1.05]
     ,["Feedrate",                 1.5]
-    ,["BrimWidth",                5]
+    ,["BrimWidth",                8]
     ,["Overhang Height",          20]
     ,["Filament DIA",             1.75]
     ,["Base Height",              0.5]
@@ -253,7 +253,7 @@ def flatten(l):
 
 def add_line_start_gcode():
     with open(OUTPUT_FILE_NAME, 'a') as gcode_file:
-        gcode_file.write(f"G1 E1.2 F300 ;unretract \n")
+        gcode_file.write(f"G1 E1.1 F300 ;unretract \n")
         gcode_file.write(f"G91; relative positioning \n")
         gcode_file.write(f"G1 Z-1.0 F3000 ; move z back down little to prevent scratching of print \n")
         gcode_file.write(f"G90; absolute positioning \n")
@@ -298,8 +298,8 @@ while remaining_empty.area > 0:
 
             gcode_move_to(v.coords[0][0], v.coords[0][1], 0, FEEDRATE*20)
             add_line_start_gcode()
-            add_line_end_gcode()
-            add_line_start_gcode()
+            #add_line_end_gcode()
+            #add_line_start_gcode()
 
             gpd.GeoSeries(v).plot(ax=ax[0], color=colors[i%3], linewidth=1)
             util.write_gcode(OUTPUT_FILE_NAME, v, LINE_WIDTH, LAYER_HEIGHT, FILAMENT_DIAMETER, ARC_E_MULTIPLIER, FEEDRATE, close_loop=False)
@@ -310,6 +310,10 @@ while remaining_empty.area > 0:
     else:
         if current_line.length > 0.1:
             gcode_move_to(current_line.coords[0][0], current_line.coords[0][1], 0, FEEDRATE*20)
+
+            #add_line_end_gcode()
+            #add_line_start_gcode()
+
             add_line_start_gcode()
             gpd.GeoSeries(current_line).plot(ax=ax[0], color='black', linewidth=1)
             util.write_gcode(OUTPUT_FILE_NAME, current_line, LINE_WIDTH, LAYER_HEIGHT, FILAMENT_DIAMETER, ARC_E_MULTIPLIER, FEEDRATE, close_loop=False)

@@ -13,8 +13,11 @@ M83 						;relative extrusion
 ;M203 X200 Y200 Z50 E100		; set max feed rate, not supported on klipper
 ;M205 X15 Y15 Z15 E15			; firmware dependent, min travel speed on marlin, not supported on klipper
 
+M117 waiting for temp
+M109 S190 						; set temperature and wait for it to be reached
+M190 S60 						; set bed temperature and wait for it to be reached
 M117 print_start
-print_start EXTRUDER=196 BED=61
+PRINT_START EXTRUDER=191 BED=61
 
 M117 start completed
 G90                            ; absolute positioning

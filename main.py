@@ -23,7 +23,7 @@ label_list = [
      ["Arc generator",            0]
     ,["Line width",               0.35]
     ,["Layer height",             0.4]
-    ,["Arc extrusion multiplier", 1.05]
+    ,["Arc extrusion multiplier", 1.2]
     ,["Feedrate",                 1.5]
     ,["BrimWidth",                8]
     ,["Overhang Height",          20]
@@ -195,7 +195,7 @@ starting_line_geoseries.plot(ax=ax[0], color='red', linewidth=2)
 # Generate 3d printed starting tower
 curr_z = LAYER_HEIGHT  # Height of first layer
 with open(OUTPUT_FILE_NAME, 'a') as gcode_file:
-    gcode_file.write(f"G0 X{'{0:.3f}'.format(starting_point.x)} Y{'{0:.3f}'.format(starting_point.y)} F5000\n")
+    gcode_file.write(f"G0 X{'{0:.3f}'.format(starting_point.x)} Y{'{0:.3f}'.format(starting_point.y)} F8000\n")
     gcode_file.write(f"G1 Z{'{0:.3f}'.format(curr_z)} F800\n")
     gcode_file.write(";Generating first layer\n")
     gcode_file.write("G1 E3.8\n")  # Unretract
@@ -205,7 +205,7 @@ while curr_z < BASE_HEIGHT:
     starting_tower_r = r_start + BRIM_WIDTH  
     while starting_tower_r > LINE_WIDTH*2:
         first_layer_circle = util.create_circle(starting_point.x, starting_point.y, starting_tower_r, N)
-        util.write_gcode(OUTPUT_FILE_NAME, first_layer_circle, LINE_WIDTH, LAYER_HEIGHT, FILAMENT_DIAMETER, 2, FEEDRATE*5, close_loop=True)
+        util.write_gcode(OUTPUT_FILE_NAME, first_layer_circle, LINE_WIDTH, LAYER_HEIGHT, FILAMENT_DIAMETER, 2, FEEDRATE*10, close_loop=True)
         starting_tower_r -= LINE_WIDTH*2
     
     curr_z += LAYER_HEIGHT
@@ -218,7 +218,7 @@ with open(OUTPUT_FILE_NAME, 'a') as gcode_file:
     gcode_file.write("M106 S255 ;Turn on fan to max power\n") 
     
 while curr_z < OVERHANG_HEIGHT:
-    util.write_gcode(OUTPUT_FILE_NAME, starting_line.buffer(LINE_WIDTH), LINE_WIDTH, LAYER_HEIGHT, FILAMENT_DIAMETER, 2, FEEDRATE*5, close_loop=True)
+    util.write_gcode(OUTPUT_FILE_NAME, starting_line.buffer(LINE_WIDTH), LINE_WIDTH, LAYER_HEIGHT, FILAMENT_DIAMETER, 2, FEEDRATE*10, close_loop=True)
     with open(OUTPUT_FILE_NAME, 'a') as gcode_file:
         gcode_file.write(f"G1 Z{'{0:.3f}'.format(curr_z)} F500\n")
     curr_z += LAYER_HEIGHT
@@ -317,7 +317,7 @@ while remaining_empty.area > 0:
     current_line = current_line.normalize()
     if current_line.geom_type == "MultiLineString":
         current_line = ops.linemerge(current_line)
-
+    
     if current_line.geom_type == "MultiLineString":
         for i, v in enumerate(current_line.geoms):
             line_handling(v, prev_line, colors[i%3])

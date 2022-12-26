@@ -376,10 +376,12 @@ def write_gcode(file_name, arc, line_width, layer_height, filament_diameter, e_m
             distance = Point(coordinate).distance(Point(prev_coordinate))
             volume = line_width * layer_height * distance
             e_distance = e_multiplier * volume / (3.1415 * (filament_diameter / 2)**2)
+            retract_threshold = 2
 
             if e_distance <= 0.0001:
                 feedrate = feedrate_travel
-                gcode_file.write("G1 E-1 F1500\n") # retract
+                if distance > retract_threshold:
+                    gcode_file.write("G1 E-1 F1500\n") # retract
             else:
                 feedrate = feedrate_printing
 
@@ -389,9 +391,10 @@ def write_gcode(file_name, arc, line_width, layer_height, filament_diameter, e_m
                             f"E{'{0:.8f}'.format(e_distance)} "
                             f"F{feedrate*60}\n")
 
-            if e_distance <= 0.000001:
+            if e_distance <= 0.0001:
                 feedrate = feedrate_travel
-                gcode_file.write("G1 E1 F1500\n") # deretract
+                if distance > retract_threshold:
+                    gcode_file.write("G1 E1 F1500\n") # deretract
 
             prev_coordinate = coordinate
     return

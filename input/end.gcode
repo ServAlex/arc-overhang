@@ -19,4 +19,4 @@ G90					; absolute positioning
 
 M106 S0 			; turn off fan
 
-print_end
+PRINT_END

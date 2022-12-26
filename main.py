@@ -260,7 +260,7 @@ def add_line_start_gcode():
 
 def add_line_end_gcode():
     with open(OUTPUT_FILE_NAME, 'a') as gcode_file:
-        gcode_file.write(f"G1 E-1 F300 ;retract \n")
+        gcode_file.write(f"G1 E-1 F1500 ;retract \n")
 #        gcode_file.write(f"G91; relative positioning \n")
 #        gcode_file.write(f"G1 Z1.0 F3000 ; move z up little to prevent scratching of print \n")
 #        gcode_file.write(f"G90; absolute positioning \n")
@@ -280,6 +280,22 @@ def gcode_move_to_point(p, e, feedrate):
                     f"Y{'{0:.3f}'.format(p.y)} "
                     f"E{'{0:.8f}'.format(e)} "
                     f"F{feedrate*60}\n")
+
+def line_handling(line, prev_line, color):
+    start_point = Point(line.coords[0])
+    point_on_prev_line = prev_line.interpolate(prev_line.project(start_point))
+    point_to_start_on = point_from_a_to_b_at_distance(start_point, point_on_prev_line, 1)
+    gcode_move_to_point(point_to_start_on, 0, FEEDRATE*20)
+    add_line_start_gcode()
+    #add_line_end_gcode()
+    #add_line_start_gcode()
+
+    gpd.GeoSeries(LineString([point_to_start_on, start_point])).plot(ax=ax[0], color="cyan", linewidth=1)
+    gpd.GeoSeries(start_point).plot(ax=ax[0], color="orange", linewidth=1)
+    gpd.GeoSeries(line).plot(ax=ax[0], color=color, linewidth=1)
+    util.write_gcode(OUTPUT_FILE_NAME, line, LINE_WIDTH, LAYER_HEIGHT, FILAMENT_DIAMETER, ARC_E_MULTIPLIER, FEEDRATE, close_loop=False)
+
+    add_line_end_gcode()
 
 colors = ["red", "lime", "blue"]
 add_line_end_gcode()
@@ -302,40 +318,12 @@ while remaining_empty.area > 0:
     if current_line.geom_type == "MultiLineString":
         current_line = ops.linemerge(current_line)
 
-
     if current_line.geom_type == "MultiLineString":
         for i, v in enumerate(current_line.geoms):
-            start_point = Point(v.coords[0])
-            # get point on prev line
-            point_on_prev_line = prev_line.interpolate(prev_line.project(start_point))
-            gcode_move_to_point(point_on_prev_line, 0, FEEDRATE*20)
-            #gcode_move_to(v.coords[0][0], v.coords[0][1], 0.1, FEEDRATE*20)
-            add_line_start_gcode()
-            #add_line_end_gcode()
-            #add_line_start_gcode()
-
-            gpd.GeoSeries(v).plot(ax=ax[0], color=colors[i%3], linewidth=1)
-            util.write_gcode(OUTPUT_FILE_NAME, v, LINE_WIDTH, LAYER_HEIGHT, FILAMENT_DIAMETER, ARC_E_MULTIPLIER, FEEDRATE, close_loop=False)
-            #[util.write_gcode(OUTPUT_FILE_NAME, geom, LINE_WIDTH, LAYER_HEIGHT, FILAMENT_DIAMETER, ARC_E_MULTIPLIER, FEEDRATE, close_loop=False) for geom in current_line.geoms]
-
-            add_line_end_gcode()
-
+            line_handling(v, prev_line, colors[i%3])
     else:
         if current_line.length > 0.1:
-            start_point = Point(current_line.coords[0])
-            # get point on prev line
-            point_on_prev_line = prev_line.interpolate(prev_line.project(start_point))
-            gcode_move_to_point(point_on_prev_line, 0, FEEDRATE*20)
-            #gcode_move_to(current_line.coords[0][0], current_line.coords[0][1], 0, FEEDRATE*20)
-
-            #add_line_end_gcode()
-            #add_line_start_gcode()
-
-            add_line_start_gcode()
-            gpd.GeoSeries(current_line).plot(ax=ax[0], color='black', linewidth=1)
-            util.write_gcode(OUTPUT_FILE_NAME, current_line, LINE_WIDTH, LAYER_HEIGHT, FILAMENT_DIAMETER, ARC_E_MULTIPLIER, FEEDRATE, close_loop=False)
-            add_line_end_gcode()
-    
+            line_handling(current_line, prev_line, "black")
 
     #while not plt.waitforbuttonpress(): pass
 

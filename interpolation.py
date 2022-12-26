@@ -1,3 +1,4 @@
+import math
 from shapely import geometry, ops
 from shapely.geometry import Point, Polygon, LineString, GeometryCollection
 import numpy as np
@@ -125,3 +126,10 @@ def enhance_coordinates_distribution_all_the_way(side_to_be_enchanced, second_si
 		second_points_accumulator += second
 
 	return enhanced_points_accumulator, second_points_accumulator
+
+def point_from_a_to_b_at_distance(a, b, distance):
+	dx = b.x - a.x
+	dy = b.y - a.y
+	distance_factor = distance/math.sqrt(dx**2 + dy**2)
+
+	return Point(a.x + dx*distance_factor, a.y + dy*distance_factor)

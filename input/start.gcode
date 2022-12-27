@@ -14,7 +14,7 @@ M83 						;relative extrusion
 ;M205 X15 Y15 Z15 E15			; firmware dependent, min travel speed on marlin, not supported on klipper
 
 M117 waiting for temp
-M109 S190 						; set temperature and wait for it to be reached
+M109 S180 						; set temperature and wait for it to be reached
 M190 S60 						; set bed temperature and wait for it to be reached
 M117 print_start
 PRINT_START EXTRUDER=191 BED=61

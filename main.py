@@ -283,14 +283,16 @@ def gcode_move_to_point(p, e, feedrate):
 
 def line_handling(line, prev_line, color):
     start_point = Point(line.coords[0])
-    point_on_prev_line = prev_line.interpolate(prev_line.project(start_point))
-    point_to_start_on = point_from_a_to_b_at_distance(start_point, point_on_prev_line, 1)
-    gcode_move_to_point(point_to_start_on, 0, FEEDRATE*20)
+    if prev_line is not None:
+        point_on_prev_line = prev_line.interpolate(prev_line.project(start_point))
+        point_to_start_on = point_from_a_to_b_at_distance(start_point, point_on_prev_line, 1)
+        gcode_move_to_point(point_to_start_on, 0, FEEDRATE*20)
     add_line_start_gcode()
     #add_line_end_gcode()
     #add_line_start_gcode()
 
-    gpd.GeoSeries(LineString([point_to_start_on, start_point])).plot(ax=ax[0], color="cyan", linewidth=1)
+    if prev_line is not None:
+        gpd.GeoSeries(LineString([point_to_start_on, start_point])).plot(ax=ax[0], color="cyan", linewidth=1)
     gpd.GeoSeries(start_point).plot(ax=ax[0], color="orange", linewidth=1)
     gpd.GeoSeries(line).plot(ax=ax[0], color=color, linewidth=1)
     util.write_gcode(OUTPUT_FILE_NAME, line, LINE_WIDTH, LAYER_HEIGHT, FILAMENT_DIAMETER, ARC_E_MULTIPLIER, FEEDRATE, close_loop=False)
@@ -300,11 +302,14 @@ def line_handling(line, prev_line, color):
 colors = ["red", "lime", "blue"]
 add_line_end_gcode()
 
+prev_line = None
+
 while remaining_empty.area > 0:
     #parallel_offset
     cutting_area = current_line.buffer(LINE_WIDTH, resolution=4).simplify(0.001)
     remaining_empty = remaining_empty.difference(cutting_area)
 
+    prev_line_2 = prev_line
     prev_line = current_line
 
     if cutting_area.geom_type != "MultiPolygon":
@@ -324,6 +329,28 @@ while remaining_empty.area > 0:
     else:
         if current_line.length > 0.1:
             line_handling(current_line, prev_line, "black")
+
+    # print another layer, staggering lines by some ammount
+    with open(OUTPUT_FILE_NAME, 'a') as gcode_file:
+#        gcode_file.write(f"G1 E1.1 F300 ;unretract \n")
+        gcode_file.write(f"G91; relative positioning \n")
+        gcode_file.write(f"G1 Z0.4 F3000 ; hop \n")
+        gcode_file.write(f"G90; absolute positioning \n")
+
+
+    if prev_line_2 is not None:
+        if prev_line_2.geom_type == "MultiLineString":
+            for i, v in enumerate(prev_line_2.geoms):
+                line_handling(v, None, colors[i%3])
+        else:
+            if current_line.length > 0.1:
+                line_handling(prev_line_2, None, "black")
+
+    with open(OUTPUT_FILE_NAME, 'a') as gcode_file:
+#        gcode_file.write(f"G1 E1.1 F300 ;unretract \n")
+        gcode_file.write(f"G91; relative positioning \n")
+        gcode_file.write(f"G1 Z-0.4 F3000 ; hop \n")
+        gcode_file.write(f"G90; absolute positioning \n")
 
     #while not plt.waitforbuttonpress(): pass
 
